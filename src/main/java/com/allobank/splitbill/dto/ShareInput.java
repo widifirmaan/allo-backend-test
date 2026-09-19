@@ -10,7 +10,7 @@ public record ShareInput(
         @NotBlank(message = "personName tidak boleh kosong")
         String personName,
     @Schema(
-            description = "Persen (PERCENTAGE) atau nominal rupiah (EXACT). Kosongkan = ikut bagi rata sisa (hanya EXACT_REMAINDER_EQUAL)",
+            description = "Percentage atau nominal rupiah (EXACT). Kosong = ikut bagi rata sisa",
             example = "50")
         @DecimalMin(value = "0.01", message = "shareValue minimal 0.01")
         BigDecimal shareValue) {}

@@ -1,5 +1,3 @@
-# Dua container: aplikasi + MongoDB terpisah.
-#
 #   docker compose up --build    # jalan (app di :4110, mongo di :27017)
 #   docker compose down          # berhenti (data mongo tetap tersimpan di volume)
 #   docker compose down -v       # berhenti + hapus data mongo
@@ -8,14 +6,12 @@ services:
     image: mongo:7
     container_name: splitbill-mongo
     restart: unless-stopped
-    # Batasi cache RAM (default ~50% RAM host — kebesaran untuk mesin kecil).
-    command: ["mongod", "--wiredTigerCacheSizeGB", "0.25"]
+    command: ["mongod", "--wiredTigerCacheSizeGB", "0.25"] #limitasi ram
     ports:
       - "27017:27017"
     volumes:
       - data-mongo:/data/db
     healthcheck:
-      # App baru start setelah mongo benar-benar siap (lihat depends_on).
       test: ["CMD", "mongosh", "--quiet", "--eval", "db.adminCommand('ping')"]
       interval: 5s
       timeout: 5s
@@ -29,8 +25,7 @@ services:
       - "4110:4110"
     environment:
       SPRING_DATA_MONGODB_URI: mongodb://mongo:27017/splitbill
-      # Data demo (grup demo-trip-bandung). Ganti "false" jadi "true" untuk isi.
-      APP_SEED: "false"
+      APP_SEED: "false" # Data demo (grup demo-trip-bandung). Ganti "false" jadi "true" untuk isi.
     depends_on:
       mongo:
         condition: service_healthy

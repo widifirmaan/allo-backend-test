@@ -17,6 +17,12 @@ public class GlobalExceptionHandler {
     return new ErrorResponse("GROUP_NOT_FOUND", ex.getMessage());
   }
 
+  @ExceptionHandler(ExpenseNotFoundException.class)
+  @ResponseStatus(HttpStatus.NOT_FOUND)
+  public ErrorResponse expenseTidakKetemu(ExpenseNotFoundException ex) {
+    return new ErrorResponse("EXPENSE_NOT_FOUND", ex.getMessage());
+  }
+
   @ExceptionHandler(InvalidExpenseException.class)
   @ResponseStatus(HttpStatus.BAD_REQUEST)
   public ErrorResponse expenseTidakValid(InvalidExpenseException ex) {

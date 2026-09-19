@@ -7,6 +7,7 @@ import com.allobank.splitbill.dto.AddExpenseRequest;
 import com.allobank.splitbill.dto.ExpenseResponse;
 import com.allobank.splitbill.dto.ExpenseResponse.PersonShare;
 import com.allobank.splitbill.dto.ShareInput;
+import com.allobank.splitbill.exception.ExpenseNotFoundException;
 import com.allobank.splitbill.exception.InvalidExpenseException;
 import com.allobank.splitbill.repository.BillGroupStore;
 import com.allobank.splitbill.service.split.SplitStrategy;
@@ -33,7 +34,41 @@ public class ExpenseService {
 
   public ExpenseResponse tambahExpense(String groupId, AddExpenseRequest request) {
     BillGroup grup = groupStore.findByIdOrThrow(groupId);
+    Expense expenseBaru = bangunExpense(grup, request, UUID.randomUUID().toString(), Instant.now());
+    grup.addExpense(expenseBaru);
+    groupStore.save(grup);
+    return keResponse(expenseBaru);
+  }
 
+  public ExpenseResponse ubahExpense(String groupId, String expenseId, AddExpenseRequest request) {
+    BillGroup grup = groupStore.findByIdOrThrow(groupId);
+    Expense expenseLama = cariExpenseAtauThrow(grup, expenseId);
+    Expense expenseBaru =
+        bangunExpense(grup, request, expenseId, expenseLama.createdAt());
+    grup.gantiExpense(expenseId, expenseBaru);
+    groupStore.save(grup);
+    return keResponse(expenseBaru);
+  }
+
+  public void hapusExpense(String groupId, String expenseId) {
+    BillGroup grup = groupStore.findByIdOrThrow(groupId);
+    if (!grup.hapusExpense(expenseId)) {
+      throw new ExpenseNotFoundException(expenseId);
+    }
+    groupStore.save(grup);
+  }
+
+  private Expense cariExpenseAtauThrow(BillGroup grup, String expenseId) {
+    for (Expense expense : grup.getExpenseList()) {
+      if (expense.expenseId().equals(expenseId)) {
+        return expense;
+      }
+    }
+    throw new ExpenseNotFoundException(expenseId);
+  }
+
+  private Expense bangunExpense(
+      BillGroup grup, AddExpenseRequest request, String expenseId, Instant createdAt) {
     String namaPembayar = request.paidBy().trim();
     if (!grup.getParticipantNames().contains(namaPembayar)) {
       throw new InvalidExpenseException("paidBy '" + namaPembayar + "' bukan peserta grup ini");
@@ -50,18 +85,14 @@ public class ExpenseService {
     SplitStrategy strategi = strategyFactory.pilih(jenisSplit);
     Map<String, BigDecimal> utangPerOrang = strategi.hitungBagian(nominal, daftarShare);
 
-    Expense expenseBaru =
-        new Expense(
-            UUID.randomUUID().toString(),
-            request.description().trim(),
-            nominal,
-            namaPembayar,
-            jenisSplit,
-            utangPerOrang,
-            Instant.now());
-    grup.addExpense(expenseBaru);
-    groupStore.save(grup);
-    return keResponse(expenseBaru);
+    return new Expense(
+        expenseId,
+        request.description().trim(),
+        nominal,
+        namaPembayar,
+        jenisSplit,
+        utangPerOrang,
+        createdAt);
   }
 
   private List<ShareInput> susunDaftarShare(

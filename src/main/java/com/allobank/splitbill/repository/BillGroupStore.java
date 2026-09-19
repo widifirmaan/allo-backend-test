@@ -13,6 +13,9 @@ public interface BillGroupStore {
 
   Optional<BillGroup> findById(String groupId);
 
+  /** Hapus grup. False kalau groupId tidak ada. */
+  boolean deleteById(String groupId);
+
   default BillGroup findByIdOrThrow(String groupId) {
     return findById(groupId).orElseThrow(() -> new GroupNotFoundException(groupId));
   }

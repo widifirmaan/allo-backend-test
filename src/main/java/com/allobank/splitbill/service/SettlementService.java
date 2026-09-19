@@ -5,6 +5,7 @@ import com.allobank.splitbill.model.Expense;
 import com.allobank.splitbill.dto.SettlementResponse;
 import com.allobank.splitbill.dto.SettlementResponse.MoneyTransfer;
 import com.allobank.splitbill.dto.SettlementResponse.PersonBalance;
+import com.allobank.splitbill.dto.SettlementResponse.PersonChargeShare;
 import com.allobank.splitbill.repository.BillGroupStore;
 import java.math.BigDecimal;
 import java.util.ArrayDeque;
@@ -18,6 +19,8 @@ import org.springframework.stereotype.Service;
 
 @Service
 public class SettlementService {
+
+  static final String PENERIMA_CHARGE = "SERVICE_CHARGE";
 
   private final BillGroupStore groupStore;
   private final ServiceChargeCalculator chargeCalculator;
@@ -49,15 +52,25 @@ public class SettlementService {
     }
     totalBelanja = ServiceChargeCalculator.bulatkanUang(totalBelanja);
 
+    BigDecimal nominalCharge = chargeCalculator.hitungNominalCharge(totalBelanja);
+    Map<String, BigDecimal> chargePerOrang =
+        chargeCalculator.bagiRataCharge(nominalCharge, grup.getParticipantNames());
+
     List<PersonBalance> daftarSaldo = new ArrayList<>();
     for (String namaPeserta : grup.getParticipantNames()) {
       BigDecimal totalDibayar = ServiceChargeCalculator.bulatkanUang(totalDibayarPerOrang.get(namaPeserta));
       BigDecimal totalBagian = ServiceChargeCalculator.bulatkanUang(totalBagianPerOrang.get(namaPeserta));
-      BigDecimal saldoBersih = totalDibayar.subtract(totalBagian);
+      BigDecimal saldoBersih =
+          totalDibayar.subtract(totalBagian).subtract(chargePerOrang.get(namaPeserta));
       daftarSaldo.add(new PersonBalance(namaPeserta, totalDibayar, totalBagian, saldoBersih));
     }
 
     List<MoneyTransfer> daftarTransfer = susunTransferMinimal(daftarSaldo);
+
+    List<PersonChargeShare> daftarCharge = new ArrayList<>();
+    for (String namaPeserta : grup.getParticipantNames()) {
+      daftarCharge.add(new PersonChargeShare(namaPeserta, chargePerOrang.get(namaPeserta)));
+    }
 
     return new SettlementResponse(
         grup.getGroupId(),
@@ -66,7 +79,8 @@ public class SettlementService {
         daftarSaldo,
         daftarTransfer,
         chargeCalculator.hitungPersenCharge(),
-        chargeCalculator.hitungNominalCharge(totalBelanja));
+        nominalCharge,
+        daftarCharge);
   }
 
   List<MoneyTransfer> susunTransferMinimal(List<PersonBalance> daftarSaldo) {
@@ -111,6 +125,13 @@ public class SettlementService {
       }
       if (debitur.lunas()) {
         daftarDebitur.poll();
+      }
+    }
+    for (SaldoBerjalan debitur : daftarDebitur) {
+      if (!debitur.lunas()) {
+        hasilTransfer.add(new MoneyTransfer(
+            debitur.namaOrang, PENERIMA_CHARGE,
+            ServiceChargeCalculator.bulatkanUang(debitur.sisaNominal)));
       }
     }
     return hasilTransfer;

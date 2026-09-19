@@ -33,4 +33,13 @@ public class MongoBillGroupStore implements BillGroupStore {
   public Optional<BillGroup> findById(String groupId) {
     return mongoRepository.findById(groupId).map(BillGroupDocument::toDomain);
   }
+
+  @Override
+  public boolean deleteById(String groupId) {
+    if (!mongoRepository.existsById(groupId)) {
+      return false;
+    }
+    mongoRepository.deleteById(groupId);
+    return true;
+  }
 }

@@ -14,6 +14,7 @@ import com.allobank.splitbill.dto.AddExpenseRequest;
 import com.allobank.splitbill.dto.CreateGroupRequest;
 import com.allobank.splitbill.dto.GroupResponse;
 import com.allobank.splitbill.dto.ShareInput;
+import com.allobank.splitbill.dto.UpdateGroupRequest;
 import com.allobank.splitbill.exception.GroupNotFoundException;
 import com.allobank.splitbill.exception.InvalidExpenseException;
 import com.allobank.splitbill.model.BillGroup;
@@ -125,5 +126,59 @@ class BillGroupServiceTest {
     when(groupStore.findByIdOrThrow(eq("grup-hantu")))
         .thenThrow(new GroupNotFoundException("grup-hantu"));
     assertThrows(GroupNotFoundException.class, () -> groupService.ambilGrup("grup-hantu"));
+  }
+
+  @Test
+  void ubahNamaGrup() {
+    GroupResponse hasil = groupService.ubahGrup("grup-uji", new UpdateGroupRequest("Trip Baru", null));
+
+    assertEquals("Trip Baru", hasil.groupName());
+    verify(groupStore).save(any());
+  }
+
+  @Test
+  void ubahGrupTanpaIsiDitolak() {
+    assertThrows(
+        InvalidExpenseException.class,
+        () -> groupService.ubahGrup("grup-uji", new UpdateGroupRequest(null, null)));
+    assertThrows(
+        InvalidExpenseException.class,
+        () -> groupService.ubahGrup("grup-uji", new UpdateGroupRequest("   ", List.of())));
+  }
+
+  @Test
+  void ubahPesertaBolehTambahOrangBaru() {
+    GroupResponse hasil =
+        groupService.ubahGrup(
+            "grup-uji", new UpdateGroupRequest(null, List.of("Andi", "Budi", "Citra", "Dedi")));
+
+    assertEquals(List.of("Andi", "Budi", "Citra", "Dedi"), hasil.participantNames());
+  }
+
+  @Test
+  void hapusPesertaTerpakaiExpenseDitolak() {
+    expenseService.tambahExpense(
+        "grup-uji",
+        new AddExpenseRequest("Makan", new BigDecimal("300.00"), "Andi", null, null, null));
+
+    assertThrows(
+        InvalidExpenseException.class,
+        () -> groupService.ubahGrup("grup-uji", new UpdateGroupRequest(null, List.of("Budi", "Citra"))));
+  }
+
+  @Test
+  void hapusGrupBerhasil() {
+    when(groupStore.deleteById("grup-uji")).thenReturn(true);
+
+    groupService.hapusGrup("grup-uji");
+
+    verify(groupStore).deleteById("grup-uji");
+  }
+
+  @Test
+  void hapusGrupTidakAdaDitolak() {
+    when(groupStore.deleteById("grup-hantu")).thenReturn(false);
+
+    assertThrows(GroupNotFoundException.class, () -> groupService.hapusGrup("grup-hantu"));
   }
 }

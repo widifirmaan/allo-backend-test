@@ -1,9 +1,13 @@
 package com.allobank.splitbill.controller;
 
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.when;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -64,6 +68,34 @@ class BillGroupControllerTest {
 
     mockMvc
         .perform(get("/api/groups/grup-hantu"))
+        .andExpect(status().isNotFound())
+        .andExpect(jsonPath("$.error").value("GROUP_NOT_FOUND"));
+  }
+
+  @Test
+  void ubahGrupMengembalikan200() throws Exception {
+    when(groupService.ubahGrup(eq("grup-1"), any())).thenReturn(grupContoh());
+
+    mockMvc
+        .perform(
+            put("/api/groups/grup-1")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"groupName\": \"Trip Baru\"}"))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.groupId").value("grup-1"));
+  }
+
+  @Test
+  void hapusGrupMengembalikan204() throws Exception {
+    mockMvc.perform(delete("/api/groups/grup-1")).andExpect(status().isNoContent());
+  }
+
+  @Test
+  void hapusGrupTidakAdaMengembalikan404() throws Exception {
+    doThrow(new GroupNotFoundException("grup-hantu")).when(groupService).hapusGrup("grup-hantu");
+
+    mockMvc
+        .perform(delete("/api/groups/grup-hantu"))
         .andExpect(status().isNotFound())
         .andExpect(jsonPath("$.error").value("GROUP_NOT_FOUND"));
   }

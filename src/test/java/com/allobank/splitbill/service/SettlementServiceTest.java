@@ -16,7 +16,9 @@ import com.allobank.splitbill.model.BillGroup;
 import com.allobank.splitbill.repository.BillGroupStore;
 import com.allobank.splitbill.service.split.SplitStrategyFactory;
 import java.math.BigDecimal;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
@@ -54,22 +56,36 @@ class SettlementServiceTest {
   }
 
   @Test
-  void settlementMenghasilkanDuaTransferMinimal() {
+  void settlementSaldoSudahTermasukCharge() {
     SettlementResponse hasil = settlementService.hitungSettlement(groupIdUji);
 
     assertEquals(new BigDecimal("450.00"), hasil.totalExpenses());
-    assertEquals(2, hasil.transfers().size());
-
-    BigDecimal totalTransfer =
-        hasil.transfers().stream()
-            .map(SettlementResponse.MoneyTransfer::amount)
-            .reduce(BigDecimal.ZERO, BigDecimal::add);
-    assertEquals(new BigDecimal("200.00"), totalTransfer);
-
-    assertTrue(hasil.transfers().stream().allMatch(transfer -> transfer.to().equals("Andi")));
-
     assertEquals(4, hasil.serviceChargePct());
     assertEquals(new BigDecimal("18.00"), hasil.serviceChargeAmount());
+    assertEquals(3, hasil.serviceChargeShares().size());
+    assertTrue(
+        hasil.serviceChargeShares().stream()
+            .allMatch(share -> share.chargeAmount().equals(new BigDecimal("6.00"))));
+
+    Map<String, BigDecimal> saldoPerOrang = new HashMap<>();
+    for (SettlementResponse.PersonBalance saldo : hasil.balances()) {
+      saldoPerOrang.put(saldo.personName(), saldo.netBalance());
+    }
+    assertEquals(new BigDecimal("194.00"), saldoPerOrang.get("Andi"));
+    assertEquals(new BigDecimal("-31.00"), saldoPerOrang.get("Budi"));
+    assertEquals(new BigDecimal("-181.00"), saldoPerOrang.get("Citra"));
+
+    assertEquals(3, hasil.transfers().size());
+    SettlementResponse.MoneyTransfer terakhir =
+        hasil.transfers().get(hasil.transfers().size() - 1);
+    assertEquals("SERVICE_CHARGE", terakhir.to());
+    assertEquals(new BigDecimal("18.00"), terakhir.amount());
+    BigDecimal totalTransferAntarOrang =
+        hasil.transfers().stream()
+            .filter(transfer -> !transfer.to().equals("SERVICE_CHARGE"))
+            .map(SettlementResponse.MoneyTransfer::amount)
+            .reduce(BigDecimal.ZERO, BigDecimal::add);
+    assertEquals(new BigDecimal("194.00"), totalTransferAntarOrang);
   }
 
   @Test
@@ -95,7 +111,7 @@ class SettlementServiceTest {
             .filter(saldo -> saldo.personName().equals("Budi"))
             .findFirst()
             .orElseThrow();
-    assertEquals(new BigDecimal("-205.00"), saldoBudi.netBalance());
+    assertEquals(new BigDecimal("-219.00"), saldoBudi.netBalance());
   }
 
   @Test
@@ -121,7 +137,7 @@ class SettlementServiceTest {
             .filter(saldo -> saldo.personName().equals("Citra"))
             .findFirst()
             .orElseThrow();
-    assertEquals(new BigDecimal("-5.00"), saldoCitra.netBalance());
+    assertEquals(new BigDecimal("-13.66"), saldoCitra.netBalance());
   }
 
   @Test
@@ -147,7 +163,7 @@ class SettlementServiceTest {
             .filter(saldo -> saldo.personName().equals("Budi"))
             .findFirst()
             .orElseThrow();
-    assertEquals(new BigDecimal("185.00"), saldoBudi.netBalance());
+    assertEquals(new BigDecimal("175.00"), saldoBudi.netBalance());
   }
 
   @Test

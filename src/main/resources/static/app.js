@@ -242,6 +242,10 @@ function tampilkanSettlement(settlement) {
 
   const badan = document.getElementById("badanTabelSaldo");
   badan.innerHTML = "";
+  const chargePerOrang = {};
+  for (const charge of settlement.service_charge_shares || []) {
+    chargePerOrang[charge.personName] = charge.chargeAmount;
+  }
   for (const saldo of settlement.balances) {
     const angka = Number(saldo.netBalance);
     const lencana =
@@ -253,7 +257,8 @@ function tampilkanSettlement(settlement) {
     badan.innerHTML +=
       `<tr><td>${saldo.personName}</td>` +
       `<td>${formatRupiah(saldo.totalPaid)}</td>` +
-      `<td>${formatRupiah(saldo.totalOwed)}</td><td>${lencana}</td></tr>`;
+      `<td>${formatRupiah(saldo.totalOwed)}</td>` +
+      `<td>${formatRupiah(chargePerOrang[saldo.personName] || 0)}</td><td>${lencana}</td></tr>`;
   }
 
   const daftar = document.getElementById("daftarTransfer");

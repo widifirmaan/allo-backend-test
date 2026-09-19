@@ -5,6 +5,8 @@ import com.allobank.splitbill.model.Expense;
 import com.allobank.splitbill.dto.CreateGroupRequest;
 import com.allobank.splitbill.dto.ExpenseResponse;
 import com.allobank.splitbill.dto.GroupResponse;
+import com.allobank.splitbill.dto.UpdateGroupRequest;
+import com.allobank.splitbill.exception.GroupNotFoundException;
 import com.allobank.splitbill.exception.InvalidExpenseException;
 import com.allobank.splitbill.repository.BillGroupStore;
 import java.util.ArrayList;
@@ -29,6 +31,50 @@ public class BillGroupService {
 
   public GroupResponse ambilGrup(String groupId) {
     return keResponse(groupStore.findByIdOrThrow(groupId));
+  }
+
+  public GroupResponse ubahGrup(String groupId, UpdateGroupRequest request) {
+    boolean adaNamaBaru = request.groupName() != null && !request.groupName().isBlank();
+    boolean adaPesertaBaru = request.participantNames() != null && !request.participantNames().isEmpty();
+    if (!adaNamaBaru && !adaPesertaBaru) {
+      throw new InvalidExpenseException("Minimal isi groupName atau participantNames");
+    }
+    BillGroup grup = groupStore.findByIdOrThrow(groupId);
+    if (adaNamaBaru) {
+      grup.setGroupName(request.groupName().trim());
+    }
+    if (adaPesertaBaru) {
+      List<String> namaBaru = bersihkanNamaPeserta(request.participantNames());
+      for (String namaTerpakai : namaTerpakaiDiExpense(grup)) {
+        if (!namaBaru.contains(namaTerpakai)) {
+          throw new InvalidExpenseException(
+              "Peserta '" + namaTerpakai + "' tidak bisa dihapus karena terpakai di expense");
+        }
+      }
+      grup.setParticipantNames(namaBaru);
+    }
+    return keResponse(groupStore.save(grup));
+  }
+
+  public void hapusGrup(String groupId) {
+    if (!groupStore.deleteById(groupId)) {
+      throw new GroupNotFoundException(groupId);
+    }
+  }
+
+  private List<String> namaTerpakaiDiExpense(BillGroup grup) {
+    List<String> hasil = new ArrayList<>();
+    for (Expense expense : grup.getExpenseList()) {
+      if (!hasil.contains(expense.paidBy())) {
+        hasil.add(expense.paidBy());
+      }
+      for (String nama : expense.utangPerOrang().keySet()) {
+        if (!hasil.contains(nama)) {
+          hasil.add(nama);
+        }
+      }
+    }
+    return hasil;
   }
 
   private List<String> bersihkanNamaPeserta(List<String> namaPesertaMentah) {

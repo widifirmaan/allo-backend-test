@@ -2,14 +2,18 @@ package com.allobank.splitbill.controller;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.when;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import com.allobank.splitbill.enums.SplitType;
 import com.allobank.splitbill.dto.ExpenseResponse;
 import com.allobank.splitbill.dto.ExpenseResponse.PersonShare;
+import com.allobank.splitbill.exception.ExpenseNotFoundException;
 import com.allobank.splitbill.exception.InvalidExpenseException;
 import com.allobank.splitbill.service.ExpenseService;
 import java.math.BigDecimal;
@@ -79,5 +83,53 @@ class ExpenseControllerTest {
                         + " \"paidBy\": \"Andi\"}"))
         .andExpect(status().isBadRequest())
         .andExpect(jsonPath("$.error").value("VALIDATION_FAILED"));
+  }
+
+  @Test
+  void ubahExpenseMengembalikan200() throws Exception {
+    when(expenseService.ubahExpense(eq("grup-1"), eq("exp-1"), any())).thenReturn(expenseContoh());
+
+    mockMvc
+        .perform(
+            put("/api/groups/grup-1/expenses/exp-1")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(
+                    "{\"description\": \"Makan\", \"amount\": 300.00,"
+                        + " \"paidBy\": \"Andi\"}"))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.expenseId").value("exp-1"));
+  }
+
+  @Test
+  void ubahExpenseTidakAdaMengembalikan404() throws Exception {
+    when(expenseService.ubahExpense(eq("grup-1"), eq("exp-hantu"), any()))
+        .thenThrow(new ExpenseNotFoundException("exp-hantu"));
+
+    mockMvc
+        .perform(
+            put("/api/groups/grup-1/expenses/exp-hantu")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(
+                    "{\"description\": \"Makan\", \"amount\": 300.00,"
+                        + " \"paidBy\": \"Andi\"}"))
+        .andExpect(status().isNotFound())
+        .andExpect(jsonPath("$.error").value("EXPENSE_NOT_FOUND"));
+  }
+
+  @Test
+  void hapusExpenseMengembalikan204() throws Exception {
+    mockMvc.perform(delete("/api/groups/grup-1/expenses/exp-1")).andExpect(status().isNoContent());
+  }
+
+  @Test
+  void hapusExpenseTidakAdaMengembalikan404() throws Exception {
+    doThrow(new ExpenseNotFoundException("exp-hantu"))
+        .when(expenseService)
+        .hapusExpense("grup-1", "exp-hantu");
+
+    mockMvc
+        .perform(delete("/api/groups/grup-1/expenses/exp-hantu"))
+        .andExpect(status().isNotFound())
+        .andExpect(jsonPath("$.error").value("EXPENSE_NOT_FOUND"));
   }
 }

@@ -10,8 +10,10 @@ import io.swagger.v3.oas.annotations.media.ExampleObject;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.ResponseStatus;
@@ -19,7 +21,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 @RestController
 @RequestMapping("/api/groups/{groupId}/expenses")
-@Tag(name = "Expense", description = "Catat pengeluaran ke dalam grup")
+@Tag(name = "Expense", description = "Catat, ubah, dan hapus pengeluaran")
 public class ExpenseController {
 
   private final ExpenseService expenseService;
@@ -76,5 +78,21 @@ public class ExpenseController {
           String groupId,
       @Valid @RequestBody AddExpenseRequest request) {
     return expenseService.tambahExpense(groupId, request);
+  }
+
+  @PutMapping("/{expenseId}")
+  @Operation(summary = "Ubah expense (hitung ulang bagiannya)")
+  public ExpenseResponse ubahExpense(
+      @PathVariable String groupId,
+      @PathVariable String expenseId,
+      @Valid @RequestBody AddExpenseRequest request) {
+    return expenseService.ubahExpense(groupId, expenseId, request);
+  }
+
+  @DeleteMapping("/{expenseId}")
+  @ResponseStatus(HttpStatus.NO_CONTENT)
+  @Operation(summary = "Hapus expense")
+  public void hapusExpense(@PathVariable String groupId, @PathVariable String expenseId) {
+    expenseService.hapusExpense(groupId, expenseId);
   }
 }

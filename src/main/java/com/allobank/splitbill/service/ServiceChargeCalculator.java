@@ -2,6 +2,9 @@ package com.allobank.splitbill.service;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
@@ -37,5 +40,25 @@ public class ServiceChargeCalculator {
 
   public static BigDecimal bulatkanUang(BigDecimal nominal) {
     return nominal.setScale(SKALA_UANG, MODE_PEMBULATAN);
+  }
+
+  public Map<String, BigDecimal> bagiRataCharge(
+      BigDecimal totalCharge, List<String> participantNames) {
+    Map<String, BigDecimal> hasil = new LinkedHashMap<>();
+    if (participantNames.isEmpty()) {
+      return hasil;
+    }
+    BigDecimal bagianDasar =
+        totalCharge.divide(BigDecimal.valueOf(participantNames.size()), SKALA_UANG, RoundingMode.DOWN);
+    for (String nama : participantNames) {
+      hasil.put(nama, bagianDasar);
+    }
+    BigDecimal selisih = totalCharge.subtract(
+        bagianDasar.multiply(BigDecimal.valueOf(participantNames.size())));
+    if (selisih.signum() != 0) {
+      String orangPertama = participantNames.get(0);
+      hasil.put(orangPertama, hasil.get(orangPertama).add(selisih));
+    }
+    return hasil;
   }
 }

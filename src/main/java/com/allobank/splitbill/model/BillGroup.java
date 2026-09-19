@@ -7,8 +7,8 @@ import java.util.List;
 public class BillGroup {
 
   private final String groupId;
-  private final String groupName;
-  private final List<String> participantNames;
+  private String groupName;
+  private List<String> participantNames;
   private final List<Expense> expenseList = new ArrayList<>();
   private final Instant createdAt;
 
@@ -26,6 +26,28 @@ public class BillGroup {
 
   public void addExpense(Expense expense) {
     expenseList.add(expense);
+  }
+
+  public boolean hapusExpense(String expenseId) {
+    return expenseList.removeIf(expense -> expense.expenseId().equals(expenseId));
+  }
+
+  public boolean gantiExpense(String expenseId, Expense expenseBaru) {
+    for (int i = 0; i < expenseList.size(); i++) {
+      if (expenseList.get(i).expenseId().equals(expenseId)) {
+        expenseList.set(i, expenseBaru);
+        return true;
+      }
+    }
+    return false;
+  }
+
+  public void setGroupName(String groupName) {
+    this.groupName = groupName;
+  }
+
+  public void setParticipantNames(List<String> participantNames) {
+    this.participantNames = List.copyOf(participantNames);
   }
 
   public String getGroupId() {

@@ -10,6 +10,7 @@ import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.media.ExampleObject;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
+import java.util.List;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -48,6 +49,12 @@ public class BillGroupController {
     return groupService.buatGrupBaru(request);
   }
 
+  @GetMapping
+  @Operation(summary = "Lihat semua grup dari database")
+  public List<GroupResponse> daftarGrup() {
+    return groupService.daftarSemuaGrup();
+  }
+
   @GetMapping("/{groupId}")
   @Operation(summary = "Lihat satu grup berdasarkan ID")
   public GroupResponse ambilGrup(
@@ -58,9 +65,9 @@ public class BillGroupController {
   }
 
   @PutMapping("/{groupId}")
-  @Operation(summary = "Ubah nama dan/atau peserta grup")
+  @Operation(summary = "Ubah nama dan/atau peserta grup (peserta minimal 2 orang)")
   public GroupResponse ubahGrup(
-      @PathVariable String groupId, @RequestBody UpdateGroupRequest request) {
+      @PathVariable String groupId, @Valid @RequestBody UpdateGroupRequest request) {
     return groupService.ubahGrup(groupId, request);
   }
 

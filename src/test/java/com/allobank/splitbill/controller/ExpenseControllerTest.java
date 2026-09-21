@@ -5,6 +5,7 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -83,6 +84,37 @@ class ExpenseControllerTest {
                         + " \"paidBy\": \"Andi\"}"))
         .andExpect(status().isBadRequest())
         .andExpect(jsonPath("$.error").value("VALIDATION_FAILED"));
+  }
+
+  @Test
+  void daftarExpensesMengembalikan200() throws Exception {
+    when(expenseService.daftarExpenses("grup-1")).thenReturn(List.of(expenseContoh()));
+
+    mockMvc
+        .perform(get("/api/groups/grup-1/expenses"))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$[0].expenseId").value("exp-1"));
+  }
+
+  @Test
+  void ambilExpenseMengembalikan200() throws Exception {
+    when(expenseService.ambilExpense("grup-1", "exp-1")).thenReturn(expenseContoh());
+
+    mockMvc
+        .perform(get("/api/groups/grup-1/expenses/exp-1"))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.expenseId").value("exp-1"));
+  }
+
+  @Test
+  void ambilExpenseTidakAdaMengembalikan404() throws Exception {
+    when(expenseService.ambilExpense("grup-1", "exp-hantu"))
+        .thenThrow(new ExpenseNotFoundException("exp-hantu"));
+
+    mockMvc
+        .perform(get("/api/groups/grup-1/expenses/exp-hantu"))
+        .andExpect(status().isNotFound())
+        .andExpect(jsonPath("$.error").value("EXPENSE_NOT_FOUND"));
   }
 
   @Test

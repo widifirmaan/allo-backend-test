@@ -139,6 +139,22 @@ class ExpenseServiceTest {
   }
 
   @Test
+  void ambilDanDaftarExpense() {
+    ExpenseResponse awal =
+        expenseService.tambahExpense(groupIdUji, requestEqual("Andi", null));
+
+    assertEquals(awal.expenseId(), expenseService.ambilExpense(groupIdUji, awal.expenseId()).expenseId());
+    assertEquals(1, expenseService.daftarExpenses(groupIdUji).size());
+  }
+
+  @Test
+  void ambilExpenseTidakAdaDitolak() {
+    assertThrows(
+        ExpenseNotFoundException.class,
+        () -> expenseService.ambilExpense(groupIdUji, "exp-hantu"));
+  }
+
+  @Test
   void ubahExpenseHitungUlang() {
     ExpenseResponse awal =
         expenseService.tambahExpense(groupIdUji, requestEqual("Andi", null));

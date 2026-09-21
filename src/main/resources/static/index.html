@@ -34,7 +34,7 @@
             <input id="inputNamaGrup" class="form-control" placeholder="Trip Bandung">
           </div>
           <div class="mb-3">
-            <label class="form-label" for="inputPeserta">Peserta (pisahkan koma)</label>
+            <label class="form-label" for="inputPeserta">Peserta (minimal 2 orang, pisahkan koma)</label>
             <input id="inputPeserta" class="form-control" placeholder="Andi, Budi, Citra">
           </div>
           <button class="btn btn-primary w-100 mb-3" onclick="buatGrupBaru()">Buat Grup</button>
@@ -55,7 +55,7 @@
       </section>
 
       <section class="card shadow-sm">
-        <div class="card-header fw-bold">2. Tambah Expense</div>
+        <div class="card-header fw-bold" id="judulFormExpense">2. Tambah Expense</div>
         <div class="card-body">
           <div id="peringatanBelumAdaGrup" class="alert alert-warning">
             Buat / buka grup dulu di bagian 1.
@@ -100,7 +100,8 @@
               </button>
             </div>
 
-            <button class="btn btn-success w-100" onclick="tambahExpenseBaru()">Simpan Expense</button>
+            <button id="tombolSimpanExpense" class="btn btn-success w-100" onclick="tambahExpenseBaru()">Simpan Expense</button>
+            <button id="tombolBatalExpense" class="btn btn-outline-secondary w-100 mt-2 d-none" onclick="batalUbahExpense()">Batal (kembali ke tambah baru)</button>
           </div>
         </div>
       </section>
@@ -113,12 +114,32 @@
       <section class="card shadow-sm mb-4">
         <div class="card-header fw-bold d-flex justify-content-between align-items-center">
           <span>3. Isi Grup</span>
-          <span id="badgeTotal" class="badge text-bg-primary"></span>
+          <span class="d-flex gap-2 align-items-center">
+            <span id="badgeTotal" class="badge text-bg-primary"></span>
+            <button id="tombolUbahGrup" class="btn btn-sm btn-outline-primary d-none" onclick="mulaiUbahGrup()">Ubah</button>
+            <button id="tombolHapusGrup" class="btn btn-sm btn-outline-danger d-none" onclick="hapusGrupAktif()">Hapus</button>
+          </span>
         </div>
         <div class="card-body">
           <h5 id="judulGrup" class="card-title text-muted">Belum ada grup dibuka</h5>
           <p id="teksGroupId" class="text-muted small"></p>
-          
+          <p id="teksPeserta" class="small"></p>
+
+          <div id="formUbahGrup" class="border rounded p-3 mb-3 d-none bg-light">
+            <div class="mb-2">
+              <label class="form-label" for="inputUbahNamaGrup">Nama grup</label>
+              <input id="inputUbahNamaGrup" class="form-control" placeholder="Nama grup baru">
+            </div>
+            <div class="mb-2">
+              <label class="form-label" for="inputUbahPeserta">Peserta (minimal 2 orang, pisahkan koma)</label>
+              <input id="inputUbahPeserta" class="form-control" placeholder="Andi, Budi, Citra">
+              <div class="form-text">Peserta yang sudah terpakai di expense tidak bisa dihapus.</div>
+            </div>
+            <div class="d-flex gap-2">
+              <button class="btn btn-sm btn-primary" onclick="simpanUbahGrup()">Simpan</button>
+              <button class="btn btn-sm btn-outline-secondary" onclick="batalUbahGrup()">Batal</button>
+            </div>
+          </div>
           <div class="table-responsive">
             <table class="table table-striped align-middle">
               <thead>
@@ -127,10 +148,11 @@
                   <th>Nominal</th>
                   <th>Dibayar</th>
                   <th>Cara bagi</th>
+                  <th>Aksi</th>
                 </tr>
               </thead>
               <tbody id="badanTabelExpense">
-                <tr><td colspan="4" class="text-muted">—</td></tr>
+                <tr><td colspan="5" class="text-muted">—</td></tr>
               </tbody>
             </table>
           </div>

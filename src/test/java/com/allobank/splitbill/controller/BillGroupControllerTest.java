@@ -63,6 +63,17 @@ class BillGroupControllerTest {
   }
 
   @Test
+  void buatGrupSatuPesertaMengembalikan400() throws Exception {
+    mockMvc
+        .perform(
+            post("/api/groups")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"groupName\": \"Sendiri\", \"participantNames\": [\"Andi\"]}"))
+        .andExpect(status().isBadRequest())
+        .andExpect(jsonPath("$.error").value("VALIDATION_FAILED"));
+  }
+
+  @Test
   void ambilGrupTidakAdaMengembalikan404() throws Exception {
     when(groupService.ambilGrup("grup-hantu")).thenThrow(new GroupNotFoundException("grup-hantu"));
 
@@ -83,6 +94,17 @@ class BillGroupControllerTest {
                 .content("{\"groupName\": \"Trip Baru\"}"))
         .andExpect(status().isOk())
         .andExpect(jsonPath("$.groupId").value("grup-1"));
+  }
+
+  @Test
+  void ubahGrupSatuPesertaMengembalikan400() throws Exception {
+    mockMvc
+        .perform(
+            put("/api/groups/grup-1")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"participantNames\": [\"Andi\"]}"))
+        .andExpect(status().isBadRequest())
+        .andExpect(jsonPath("$.error").value("VALIDATION_FAILED"));
   }
 
   @Test

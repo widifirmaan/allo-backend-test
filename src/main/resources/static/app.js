@@ -1,7 +1,17 @@
 
 
 let grupAktif = null;
-const KUNCI_GRUP_TERSIMPAN = "splitbill.grupTersimpan";
+let daftarGrupDb = [];
+let expenseSedangDiedit = null;
+
+function escapeHtml(teks) {
+  return String(teks ?? "")
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#39;");
+}
 
 function formatRupiah(angka) {
   return "Rp " + Number(angka).toLocaleString("id-ID", { minimumFractionDigits: 2 });
@@ -15,6 +25,9 @@ function tampilkanPesan(jenis, teks) {
 
 async function panggilApi(url, opsi) {
   const response = await fetch(url, opsi);
+  if (response.status === 204) {
+    return null;
+  }
   const badan = await response.json().catch(() => ({}));
   if (!response.ok) {
     throw new Error(badan.message || "Terjadi kesalahan");
@@ -22,25 +35,23 @@ async function panggilApi(url, opsi) {
   return badan;
 }
 
-function bacaGrupTersimpan() {
-  return JSON.parse(localStorage.getItem(KUNCI_GRUP_TERSIMPAN) || "[]");
-}
-
-function simpanGrupKeDaftar(grup) {
-  const daftar = bacaGrupTersimpan().filter((g) => g.groupId !== grup.groupId);
-  daftar.unshift({ groupId: grup.groupId, groupName: grup.groupName });
-  localStorage.setItem(KUNCI_GRUP_TERSIMPAN, JSON.stringify(daftar.slice(0, 20)));
-  muatPilihanGrupTersimpan();
-}
-
-function muatPilihanGrupTersimpan() {
+async function muatPilihanGrupTersimpan(groupIdTerpilih) {
   const pilihan = document.getElementById("pilihGrupTersimpan");
-  pilihan.innerHTML = '<option value="">— pilih —</option>';
-  for (const grup of bacaGrupTersimpan()) {
-    const opsi = document.createElement("option");
-    opsi.value = grup.groupId;
-    opsi.textContent = `${grup.groupName} (${grup.groupId.slice(0, 8)}…)`;
-    pilihan.appendChild(opsi);
+  try {
+    const daftar = await panggilApi("/api/groups");
+    daftarGrupDb = Array.isArray(daftar) ? daftar : [];
+    daftarGrupDb.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+    pilihan.innerHTML = '<option value="">— pilih —</option>';
+    for (const grup of daftarGrupDb) {
+      const opsi = document.createElement("option");
+      opsi.value = grup.groupId;
+      opsi.textContent = `${grup.groupName} (${String(grup.groupId).slice(0, 8)}…)`;
+      pilihan.appendChild(opsi);
+    }
+    const terpilih = groupIdTerpilih || (grupAktif && grupAktif.groupId);
+    if (terpilih) pilihan.value = terpilih;
+  } catch (kesalahan) {
+    tampilkanPesan("danger", kesalahan.message);
   }
 }
 
@@ -51,13 +62,17 @@ async function buatGrupBaru() {
     .value.split(",")
     .map((nama) => nama.trim())
     .filter((nama) => nama.length > 0);
+  if (peserta.length < 2) {
+    tampilkanPesan("warning", "Peserta minimal 2 orang, pisahkan dengan koma. Contoh: Andi, Budi");
+    return;
+  }
   try {
     const grup = await panggilApi("/api/groups", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ groupName: namaGrup, participantNames: peserta }),
     });
-    simpanGrupKeDaftar(grup);
+    await muatPilihanGrupTersimpan(grup.groupId);
     pilihGrupAktif(grup);
     tampilkanPesan("success", `Grup <b>${grup.groupName}</b> dibuat.`);
   } catch (kesalahan) {
@@ -78,7 +93,7 @@ function bukaGrupManual() {
 async function bukaGrupDenganId(groupId) {
   try {
     const grup = await panggilApi(`/api/groups/${groupId}`);
-    simpanGrupKeDaftar(grup);
+    await muatPilihanGrupTersimpan(grup.groupId);
     pilihGrupAktif(grup);
   } catch (kesalahan) {
     tampilkanPesan("danger", kesalahan.message);
@@ -87,12 +102,108 @@ async function bukaGrupDenganId(groupId) {
 
 function pilihGrupAktif(grup) {
   grupAktif = grup;
+  expenseSedangDiedit = null;
   document.getElementById("peringatanBelumAdaGrup").classList.add("d-none");
   document.getElementById("formExpense").classList.remove("d-none");
+  document.getElementById("tombolUbahGrup").classList.remove("d-none");
+  document.getElementById("tombolHapusGrup").classList.remove("d-none");
+  document.getElementById("formUbahGrup").classList.add("d-none");
+  aturModeFormExpense();
   siapkanPilihanPembayar();
   siapkanCentangPeserta();
   siapkanBarisShares();
   muatUlangTampilan();
+}
+
+function aturModeFormExpense() {
+  const sedangUbah = expenseSedangDiedit !== null;
+  document.getElementById("judulFormExpense").textContent = sedangUbah
+    ? `2. Ubah Expense (${expenseSedangDiedit})`
+    : "2. Tambah Expense";
+  document.getElementById("tombolSimpanExpense").textContent = sedangUbah
+    ? "Update Expense"
+    : "Simpan Expense";
+  document.getElementById("tombolBatalExpense").classList.toggle("d-none", !sedangUbah);
+}
+
+function mulaiUbahGrup() {
+  if (!grupAktif) return;
+  document.getElementById("inputUbahNamaGrup").value = grupAktif.groupName;
+  document.getElementById("inputUbahPeserta").value = grupAktif.participantNames.join(", ");
+  document.getElementById("formUbahGrup").classList.remove("d-none");
+}
+
+function batalUbahGrup() {
+  document.getElementById("formUbahGrup").classList.add("d-none");
+}
+
+async function simpanUbahGrup() {
+  if (!grupAktif) return;
+  const namaBaru = document.getElementById("inputUbahNamaGrup").value.trim();
+  const pesertaBaru = document
+    .getElementById("inputUbahPeserta")
+    .value.split(",")
+    .map((nama) => nama.trim())
+    .filter((nama) => nama.length > 0);
+  const badan = {};
+  if (namaBaru) badan.groupName = namaBaru;
+  if (pesertaBaru.length > 0) {
+    if (pesertaBaru.length < 2) {
+      tampilkanPesan("warning", "Peserta minimal 2 orang.");
+      return;
+    }
+    badan.participantNames = pesertaBaru;
+  }
+  if (!badan.groupName && !badan.participantNames) {
+    tampilkanPesan("warning", "Isi nama grup atau peserta dulu.");
+    return;
+  }
+  try {
+    const grup = await panggilApi(`/api/groups/${grupAktif.groupId}`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(badan),
+    });
+    batalUbahGrup();
+    await muatPilihanGrupTersimpan(grup.groupId);
+    grupAktif = grup;
+    expenseSedangDiedit = null;
+    aturModeFormExpense();
+    siapkanPilihanPembayar();
+    siapkanCentangPeserta();
+    siapkanBarisShares();
+    muatUlangTampilan();
+    tampilkanPesan("success", "Grup diperbarui.");
+  } catch (kesalahan) {
+    tampilkanPesan("danger", kesalahan.message);
+  }
+}
+
+async function hapusGrupAktif() {
+  if (!grupAktif) return;
+  if (!confirm(`Hapus grup "${grupAktif.groupName}" beserta semua expenses-nya?`)) return;
+  try {
+    await panggilApi(`/api/groups/${grupAktif.groupId}`, { method: "DELETE" });
+    const namaHapus = grupAktif.groupName;
+    grupAktif = null;
+    expenseSedangDiedit = null;
+    document.getElementById("judulGrup").textContent = "Belum ada grup dibuka";
+    document.getElementById("judulGrup").classList.add("text-muted");
+    document.getElementById("teksGroupId").textContent = "";
+    document.getElementById("teksPeserta").textContent = "";
+    document.getElementById("badgeTotal").textContent = "";
+    document.getElementById("badanTabelExpense").innerHTML =
+      '<tr><td colspan="5" class="text-muted">—</td></tr>';
+    document.getElementById("formExpense").classList.add("d-none");
+    document.getElementById("peringatanBelumAdaGrup").classList.remove("d-none");
+    document.getElementById("tombolUbahGrup").classList.add("d-none");
+    document.getElementById("tombolHapusGrup").classList.add("d-none");
+    document.getElementById("formUbahGrup").classList.add("d-none");
+    await muatPilihanGrupTersimpan();
+    tampilkanPesan("success", `Grup <b>${escapeHtml(namaHapus)}</b> dihapus.`);
+  } catch (kesalahan) {
+    tampilkanPesan("danger", kesalahan.message);
+  }
 }
 
 function siapkanPilihanPembayar() {
@@ -165,6 +276,7 @@ function bacaBarisShares() {
 }
 
 async function tambahExpenseBaru() {
+  if (!grupAktif) return;
   const jenis = document.getElementById("pilihJenisSplit").value;
   const badan = {
     description: document.getElementById("inputDeskripsi").value.trim(),
@@ -180,15 +292,84 @@ async function tambahExpenseBaru() {
   } else {
     badan.shares = bacaBarisShares();
   }
+  const sedangUbah = expenseSedangDiedit !== null;
+  const url = sedangUbah
+    ? `/api/groups/${grupAktif.groupId}/expenses/${expenseSedangDiedit}`
+    : `/api/groups/${grupAktif.groupId}/expenses`;
   try {
-    await panggilApi(`/api/groups/${grupAktif.groupId}/expenses`, {
-      method: "POST",
+    await panggilApi(url, {
+      method: sedangUbah ? "PUT" : "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(badan),
     });
     document.getElementById("inputDeskripsi").value = "";
     document.getElementById("inputNominal").value = "";
-    tampilkanPesan("success", "Expense tersimpan.");
+    expenseSedangDiedit = null;
+    aturModeFormExpense();
+    tampilkanPesan("success", sedangUbah ? "Expense diperbarui." : "Expense tersimpan.");
+    muatUlangTampilan();
+  } catch (kesalahan) {
+    tampilkanPesan("danger", kesalahan.message);
+  }
+}
+
+function mulaiUbahExpense(expenseId) {
+  if (!grupAktif) return;
+  const expense = grupAktif.expenses.find((e) => e.expenseId === expenseId);
+  if (!expense) return;
+  expenseSedangDiedit = expenseId;
+  document.getElementById("inputDeskripsi").value = expense.description;
+  document.getElementById("inputNominal").value = expense.amount;
+  document.getElementById("pilihJenisSplit").value = expense.splitType;
+  gantiJenisSplit();
+  siapkanPilihanPembayar();
+  document.getElementById("pilihPembayar").value = expense.paidBy;
+  if (expense.splitType === "EQUAL") {
+    siapkanCentangPeserta();
+    const penanggung = expense.shares.map((s) => s.personName);
+    const semuaIkut = grupAktif.participantNames.every((nama) => penanggung.includes(nama)) &&
+      penanggung.length === grupAktif.participantNames.length;
+    if (!semuaIkut) {
+      for (const kotak of document.querySelectorAll("#daftarCentangPeserta input")) {
+        kotak.checked = penanggung.includes(kotak.value);
+      }
+    }
+  } else {
+    document.getElementById("daftarBarisShares").innerHTML = "";
+    for (const share of expense.shares) {
+      // PERCENTAGE disimpan sebagai rupiah di response, konversi balik ke persen agar bisa diedit.
+      let nilai = share.owedAmount;
+      if (expense.splitType === "PERCENTAGE" && Number(expense.amount) > 0) {
+        nilai = Math.round((Number(share.owedAmount) / Number(expense.amount)) * 10000) / 100;
+      }
+      tambahBarisShare(share.personName);
+      const barisTerakhir = document.querySelector("#daftarBarisShares > div:last-child .baris-nilai");
+      if (barisTerakhir) barisTerakhir.value = nilai;
+    }
+  }
+  aturModeFormExpense();
+  document.getElementById("formExpense").scrollIntoView({ behavior: "smooth", block: "start" });
+}
+
+function batalUbahExpense() {
+  expenseSedangDiedit = null;
+  document.getElementById("inputDeskripsi").value = "";
+  document.getElementById("inputNominal").value = "";
+  aturModeFormExpense();
+}
+
+async function hapusExpense(expenseId, deskripsi) {
+  if (!grupAktif) return;
+  if (!confirm(`Hapus expense "${deskripsi || expenseId}"?`)) return;
+  try {
+    await panggilApi(`/api/groups/${grupAktif.groupId}/expenses/${expenseId}`, {
+      method: "DELETE",
+    });
+    if (expenseSedangDiedit === expenseId) {
+      expenseSedangDiedit = null;
+      aturModeFormExpense();
+    }
+    tampilkanPesan("success", "Expense dihapus.");
     muatUlangTampilan();
   } catch (kesalahan) {
     tampilkanPesan("danger", kesalahan.message);
@@ -209,30 +390,38 @@ async function muatUlangTampilan() {
 }
 
 function ringkasShares(expense) {
-  return expense.shares.map((s) => `${s.personName}: ${formatRupiah(s.owedAmount)}`).join("<br>");
+  return expense.shares.map((s) => `${escapeHtml(s.personName)}: ${formatRupiah(s.owedAmount)}`).join("<br>");
 }
 
 function tampilkanIsiGrup(grup) {
   document.getElementById("judulGrup").textContent = grup.groupName;
   document.getElementById("judulGrup").classList.remove("text-muted");
   document.getElementById("teksGroupId").textContent = "ID: " + grup.groupId;
+  document.getElementById("teksPeserta").textContent =
+    "Peserta: " + grup.participantNames.join(", ");
   const totalBelanja = grup.expenses.reduce((jumlah, e) => jumlah + Number(e.amount), 0);
   document.getElementById("badgeTotal").textContent =
     `${grup.expenses.length} expense · ${formatRupiah(totalBelanja)}`;
 
   const badan = document.getElementById("badanTabelExpense");
   if (grup.expenses.length === 0) {
-    badan.innerHTML = '<tr><td colspan="4" class="text-muted">Belum ada expense.</td></tr>';
+    badan.innerHTML = '<tr><td colspan="5" class="text-muted">Belum ada expense.</td></tr>';
     return;
   }
   badan.innerHTML = "";
   for (const expense of grup.expenses) {
+    const idAman = escapeHtml(expense.expenseId);
+    const deskripsiAman = escapeHtml(expense.description);
     badan.innerHTML +=
-      `<tr><td>${expense.description}</td>` +
+      `<tr><td>${deskripsiAman}</td>` +
       `<td>${formatRupiah(expense.amount)}</td>` +
-      `<td>${expense.paidBy}</td>` +
-      `<td><span class="badge text-bg-secondary mb-1">${expense.splitType}</span><br>` +
-      `<small>${ringkasShares(expense)}</small></td></tr>`;
+      `<td>${escapeHtml(expense.paidBy)}</td>` +
+      `<td><span class="badge text-bg-secondary mb-1">${escapeHtml(expense.splitType)}</span><br>` +
+      `<small>${ringkasShares(expense)}</small></td>` +
+      `<td class="text-nowrap">` +
+      `<button class="btn btn-sm btn-outline-primary me-1" onclick="mulaiUbahExpense('${idAman}')">Ubah</button>` +
+      `<button class="btn btn-sm btn-outline-danger" onclick="hapusExpense('${idAman}', '${deskripsiAman}')">Hapus</button>` +
+      `</td></tr>`;
   }
 }
 

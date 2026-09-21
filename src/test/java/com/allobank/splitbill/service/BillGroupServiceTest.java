@@ -106,6 +106,13 @@ class BillGroupServiceTest {
   }
 
   @Test
+  void pesertaSatuOrangDitolak() {
+    assertThrows(
+        InvalidExpenseException.class,
+        () -> groupService.buatGrupBaru(new CreateGroupRequest("Sendiri", List.of("Andi"))));
+  }
+
+  @Test
   void namaPesertaKosongDitolak() {
     assertThrows(
         InvalidExpenseException.class,
@@ -115,8 +122,22 @@ class BillGroupServiceTest {
   }
 
   @Test
-  void namaDuplikatDanSpasiDirapikan() {
-    groupService.buatGrupBaru(new CreateGroupRequest("Rapi", List.of("Andi", " Andi ", "Budi")));
+  void namaDuplikatDitolak() {
+    assertThrows(
+        InvalidExpenseException.class,
+        () ->
+            groupService.buatGrupBaru(
+                new CreateGroupRequest("Rapi", List.of("Andi", " Andi ", "Budi"))));
+    assertThrows(
+        InvalidExpenseException.class,
+        () ->
+            groupService.buatGrupBaru(
+                new CreateGroupRequest("Rapi", List.of("Andi", "andi", "Budi"))));
+  }
+
+  @Test
+  void spasiNamaPesertaDirapikan() {
+    groupService.buatGrupBaru(new CreateGroupRequest("Rapi", List.of(" Andi ", "Budi  ")));
 
     verify(groupStore).saveNewGroup(eq("Rapi"), eq(List.of("Andi", "Budi")));
   }
@@ -144,6 +165,20 @@ class BillGroupServiceTest {
     assertThrows(
         InvalidExpenseException.class,
         () -> groupService.ubahGrup("grup-uji", new UpdateGroupRequest("   ", List.of())));
+  }
+
+  @Test
+  void ubahGrupNamaKosongDitolak() {
+    assertThrows(
+        InvalidExpenseException.class,
+        () -> groupService.ubahGrup("grup-uji", new UpdateGroupRequest("   ", null)));
+  }
+
+  @Test
+  void ubahPesertaSatuOrangDitolak() {
+    assertThrows(
+        InvalidExpenseException.class,
+        () -> groupService.ubahGrup("grup-uji", new UpdateGroupRequest(null, List.of("Andi"))));
   }
 
   @Test

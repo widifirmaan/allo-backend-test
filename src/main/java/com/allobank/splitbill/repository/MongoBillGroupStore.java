@@ -42,4 +42,13 @@ public class MongoBillGroupStore implements BillGroupStore {
     mongoRepository.deleteById(groupId);
     return true;
   }
+
+  @Override
+  public List<BillGroup> findAll() {
+    List<BillGroup> hasil = new java.util.ArrayList<>();
+    for (BillGroupDocument dokumen : mongoRepository.findAll()) {
+      hasil.add(dokumen.toDomain());
+    }
+    return hasil;
+  }
 }

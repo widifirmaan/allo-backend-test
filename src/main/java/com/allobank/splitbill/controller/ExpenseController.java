@@ -9,8 +9,10 @@ import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.media.ExampleObject;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
+import java.util.List;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.DeleteMapping;
+import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
@@ -78,6 +80,19 @@ public class ExpenseController {
           String groupId,
       @Valid @RequestBody AddExpenseRequest request) {
     return expenseService.tambahExpense(groupId, request);
+  }
+
+  @GetMapping
+  @Operation(summary = "Lihat semua expense dalam satu grup")
+  public List<ExpenseResponse> daftarExpenses(@PathVariable String groupId) {
+    return expenseService.daftarExpenses(groupId);
+  }
+
+  @GetMapping("/{expenseId}")
+  @Operation(summary = "Lihat satu expense berdasarkan ID")
+  public ExpenseResponse ambilExpense(
+      @PathVariable String groupId, @PathVariable String expenseId) {
+    return expenseService.ambilExpense(groupId, expenseId);
   }
 
   @PutMapping("/{expenseId}")

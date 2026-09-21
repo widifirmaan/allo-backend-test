@@ -33,7 +33,18 @@ public class BillGroupService {
     return keResponse(groupStore.findByIdOrThrow(groupId));
   }
 
+  public List<GroupResponse> daftarSemuaGrup() {
+    List<GroupResponse> hasil = new ArrayList<>();
+    for (BillGroup grup : groupStore.findAll()) {
+      hasil.add(keResponse(grup));
+    }
+    return hasil;
+  }
+
   public GroupResponse ubahGrup(String groupId, UpdateGroupRequest request) {
+    if (request.groupName() != null && request.groupName().isBlank()) {
+      throw new InvalidExpenseException("groupName tidak boleh kosong");
+    }
     boolean adaNamaBaru = request.groupName() != null && !request.groupName().isBlank();
     boolean adaPesertaBaru = request.participantNames() != null && !request.participantNames().isEmpty();
     if (!adaNamaBaru && !adaPesertaBaru) {
@@ -79,14 +90,26 @@ public class BillGroupService {
 
   private List<String> bersihkanNamaPeserta(List<String> namaPesertaMentah) {
     if (namaPesertaMentah == null || namaPesertaMentah.isEmpty()) {
-      throw new InvalidExpenseException("participantNames minimal 1 orang");
+      throw new InvalidExpenseException("participantNames minimal 2 orang");
     }
     LinkedHashSet<String> namaUnik = new LinkedHashSet<>();
     for (String nama : namaPesertaMentah) {
       if (nama == null || nama.isBlank()) {
         throw new InvalidExpenseException("Nama peserta tidak boleh kosong");
       }
-      namaUnik.add(nama.trim());
+      String namaBersih = nama.trim();
+      boolean duplikatSamaPersis =
+          namaUnik.stream().anyMatch(namaAda -> namaAda.equals(namaBersih));
+      boolean duplikatBedaKapital =
+          !duplikatSamaPersis
+              && namaUnik.stream().anyMatch(namaAda -> namaAda.equalsIgnoreCase(namaBersih));
+      if (duplikatSamaPersis || duplikatBedaKapital) {
+        throw new InvalidExpenseException("Nama peserta tidak boleh duplikat: '" + namaBersih + "'");
+      }
+      namaUnik.add(namaBersih);
+    }
+    if (namaUnik.size() < 2) {
+      throw new InvalidExpenseException("participantNames minimal 2 orang");
     }
     return new ArrayList<>(namaUnik);
   }

@@ -50,6 +50,20 @@ public class ExpenseService {
     return keResponse(expenseBaru);
   }
 
+  public ExpenseResponse ambilExpense(String groupId, String expenseId) {
+    BillGroup grup = groupStore.findByIdOrThrow(groupId);
+    return keResponse(cariExpenseAtauThrow(grup, expenseId));
+  }
+
+  public List<ExpenseResponse> daftarExpenses(String groupId) {
+    BillGroup grup = groupStore.findByIdOrThrow(groupId);
+    List<ExpenseResponse> hasil = new ArrayList<>();
+    for (Expense expense : grup.getExpenseList()) {
+      hasil.add(keResponse(expense));
+    }
+    return hasil;
+  }
+
   public void hapusExpense(String groupId, String expenseId) {
     BillGroup grup = groupStore.findByIdOrThrow(groupId);
     if (!grup.hapusExpense(expenseId)) {
